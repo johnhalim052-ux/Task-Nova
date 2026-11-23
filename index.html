@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TaskNova — Microtask Marketplace &amp; Employer Campaign Platform</title>
+    <meta
+      name="description"
+      content="TaskNova is a full-stack microtask marketplace where verified employers fund campaigns and workers submit proof to earn rewards tracked on a server-side PostgreSQL ledger."
+    />
+    <meta property="og:title" content="TaskNova — Microtask Marketplace &amp; Employer Campaign Platform" />
+    <meta
+      property="og:description"
+      content="Complete verified online microtasks, submit proof, manage funded campaigns, and track server-side wallet payouts."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- For standalone GitHub Pages hosting, set content to your deployed Node.js backend URL (e.g. https://api.example.com) -->
+    <meta name="tasknova-api-base" content="" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="toast-region" class="toast-region" aria-live="polite"></div>
+
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a href="#marketplace" class="brand" id="brand-home">
+          <span class="brand-mark" aria-hidden="true">TN</span>
+          <span class="brand-copy">
+            <strong>TaskNova</strong>
+            <small>Microtask Ledger</small>
+          </span>
+        </a>
+
+        <nav class="main-nav" id="main-nav" aria-label="Primary navigation">
+          <button type="button" class="nav-link active" data-view="marketplace">Marketplace</button>
+          <button type="button" class="nav-link auth-only hidden" data-view="dashboard">Dashboard</button>
+          <button type="button" class="nav-link auth-only hidden" data-view="submissions">My Tasks</button>
+          <button type="button" class="nav-link auth-only hidden" data-view="wallet">Wallet</button>
+          <button type="button" class="nav-link auth-only hidden" data-view="employer">Employer</button>
+          <button type="button" class="nav-link admin-only hidden" data-view="admin">Admin</button>
+        </nav>
+
+        <div class="topbar-actions">
+          <div class="wallet-chip auth-only hidden" id="header-wallet-chip" title="Server-verified available balance">
+            <span class="wallet-chip-label">Available</span>
+            <strong id="header-available-balance" class="tabular-nums">$0.00</strong>
+          </div>
+
+          <button type="button" class="icon-btn auth-only hidden" id="btn-notifications" aria-label="Notifications">
+            <span class="bell-icon" aria-hidden="true">&#128276;</span>
+            <span class="badge-count hidden" id="unread-badge">0</span>
+          </button>
+
+          <button type="button" class="btn btn-ghost auth-only hidden" id="btn-account-view">Account</button>
+          <button type="button" class="btn btn-outline auth-only hidden" id="btn-logout">Sign Out</button>
+
+          <button type="button" class="btn btn-ghost guest-only" id="btn-open-login">Sign In</button>
+          <button type="button" class="btn btn-primary guest-only" id="btn-open-register">Get Started</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <!-- Guest Welcome / First-Run Admin Banner -->
+      <section class="banner hidden" id="first-run-admin-banner">
+        <div>
+          <strong>Fresh Instance Detected:</strong> No administrator account exists yet on this database.
+          Initialize the primary platform admin account to manage employer verification, payouts, and fraud review.
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-open-admin-setup">Initialize Admin</button>
+      </section>
+
+      <section class="banner banner-warn hidden" id="email-verify-banner">
+        <div>
+          <strong>Email Verification Pending:</strong> Verify your email address to unlock withdrawals.
+          Check your inbox or enter your verification token in Account Settings.
+        </div>
+        <div class="banner-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-resend-verify">Resend Email</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-go-verify">Enter Token</button>
+        </div>
+      </section>
+
+      <!-- VIEW: MARKETPLACE -->
+      <section class="view active" id="view-marketplace">
+        <div class="hero-card">
+          <div class="hero-content">
+            <p class="eyebrow">PostgreSQL-Backed Microtask Marketplace</p>
+            <h1>Complete real microtasks. Track verified rewards.</h1>
+            <p class="hero-sub">
+              Browse funded campaigns published by verified employers across social media, testing, research, surveys, and data tasks. Every submission and reward movement is recorded inside atomic database transactions.
+            </p>
+          </div>
+          <div class="hero-metrics" id="marketplace-summary">
+            <div class="metric-tile">
+              <span class="metric-label">Funded Campaigns</span>
+              <strong id="mk-active-count" class="tabular-nums">0</strong>
+            </div>
+            <div class="metric-tile">
+              <span class="metric-label">Open Slots</span>
+              <strong id="mk-open-slots" class="tabular-nums">0</strong>
+            </div>
+            <div class="metric-tile">
+              <span class="metric-label">Categories</span>
+              <strong class="tabular-nums">8</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar card">
+          <div class="toolbar-grid">
+            <div class="field">
+              <label for="filter-search">Search tasks</label>
+              <input id="filter-search" type="search" placeholder="Search by title, keyword, or employer..." />
+            </div>
+            <div class="field">
+              <label for="filter-category">Category</label>
+              <select id="filter-category">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="filter-difficulty">Difficulty</label>
+              <select id="filter-difficulty">
+                <option value="">Any Difficulty</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="filter-sort">Sort by</label>
+              <select id="filter-sort">
+                <option value="newest">Newest First</option>
+                <option value="reward_desc">Highest Reward</option>
+                <option value="reward_asc">Lowest Reward</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="marketplace-grid" class="task-grid"></div>
+        <div id="marketplace-empty" class="empty-state card hidden">
+          <h3>No active funded campaigns match your filters</h3>
+          <p>
+            Verified employers can create and fund new microtask campaigns from the <strong>Employer</strong> portal, or adjust your search filters above.
+          </p>
+        </div>
+      </section>
+
+      <!-- VIEW: WORKER DASHBOARD -->
+      <section class="view hidden" id="view-dashboard">
+        <div class="section-head">
+          <div>
+            <h2>Worker Dashboard</h2>
+            <p>Live metrics derived from your server-side wallet ledger and submissions.</p>
+          </div>
+          <button type="button" class="btn btn-primary" data-jump="marketplace">Browse Tasks</button>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span>Available Balance</span>
+            <strong id="dash-available" class="tabular-nums">$0.00</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Pending Review</span>
+            <strong id="dash-pending" class="tabular-nums">$0.00</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Total Earned</span>
+            <strong id="dash-earned" class="tabular-nums">$0.00</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Approved Tasks</span>
+            <strong id="dash-approved" class="tabular-nums">0</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Approval Rate</span>
+            <strong id="dash-rate" class="tabular-nums">100%</strong>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Recent Task Activity</h3>
+            <button type="button" class="btn btn-ghost btn-sm" data-jump="submissions">View All Submissions</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Category</th>
+                  <th>Reward</th>
+                  <th>Status</th>
+                  <th>Accepted</th>
+                </tr>
+              </thead>
+              <tbody id="dash-recent-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: MY SUBMISSIONS -->
+      <section class="view hidden" id="view-submissions">
+        <div class="section-head">
+          <div>
+            <h2>My Accepted &amp; Submitted Tasks</h2>
+            <p>Submit proof for accepted tasks and track employer or admin review outcomes.</p>
+          </div>
+        </div>
+        <div id="submissions-list" class="stack-list"></div>
+        <div id="submissions-empty" class="empty-state card hidden">
+          <h3>No tasks accepted yet</h3>
+          <p>Accept a funded task from the Marketplace to submit proof and earn rewards.</p>
+        </div>
+      </section>
+
+      <!-- VIEW: WALLET & WITHDRAWALS -->
+      <section class="view hidden" id="view-wallet">
+        <div class="section-head">
+          <div>
+            <h2>Server-Side Wallet &amp; Payouts</h2>
+            <p>Balances are strictly server-controlled and modified only by transactional ledger entries.</p>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span>Available Balance</span>
+            <strong id="wal-available" class="tabular-nums">$0.00</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Pending Balance</span>
+            <strong id="wal-pending" class="tabular-nums">$0.00</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Total Earnings</span>
+            <strong id="wal-earned" class="tabular-nums">$0.00</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Total Withdrawn</span>
+            <strong id="wal-withdrawn" class="tabular-nums">$0.00</strong>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-head">
+              <h3>Request Withdrawal</h3>
+              <span class="subtle-text">Min $5.00 USD</span>
+            </div>
+            <form id="withdraw-form" class="form-stack">
+              <div class="field">
+                <label for="wd-method">Payout Method</label>
+                <select id="wd-method" required>
+                  <option value="paypal">PayPal</option>
+                  <option value="usdt">USDT (TRC20 / ERC20)</option>
+                  <option value="vodafone_cash">Vodafone Cash (Egypt)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="wd-destination" id="wd-destination-label">PayPal Email Address</label>
+                <input id="wd-destination" type="text" required placeholder="worker@example.com" />
+              </div>
+              <div class="field">
+                <label for="wd-amount">Amount (USD)</label>
+                <input id="wd-amount" type="number" step="0.01" min="5" required placeholder="10.00" />
+              </div>
+              <button type="submit" class="btn btn-primary">Submit Withdrawal Request</button>
+              <p class="form-hint">
+                Withdrawals place an atomic hold on your available balance and execute only through verified payment provider credentials and admin authorization.
+              </p>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Payment Provider Readiness</h3>
+            </div>
+            <div id="wallet-providers-list" class="stack-list"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Withdrawal Requests</h3>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Method</th>
+                  <th>Destination</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Provider Ref</th>
+                  <th>Requested</th>
+                </tr>
+              </thead>
+              <tbody id="wallet-withdrawals-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Wallet Ledger Transactions</h3>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Available After</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="wallet-transactions-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: EMPLOYER PORTAL -->
+      <section class="view hidden" id="view-employer">
+        <div class="section-head">
+          <div>
+            <h2>Employer Campaign Portal</h2>
+            <p>Verify your company, fund campaign budgets through verified payment flows, and review worker proofs.</p>
+          </div>
+        </div>
+
+        <div id="employer-onboarding-card" class="card hidden">
+          <h3>Register Employer Profile</h3>
+          <p class="subtle-text">
+            Submit your organization details for administrator verification before creating and funding microtask campaigns.
+          </p>
+          <form id="employer-apply-form" class="form-stack">
+            <div class="field">
+              <label for="emp-company">Company / Organization Name</label>
+              <input id="emp-company" type="text" required minlength="2" maxlength="120" />
+            </div>
+            <div class="field">
+              <label for="emp-website">Website URL</label>
+              <input id="emp-website" type="url" placeholder="https://company.example.com" />
+            </div>
+            <div class="field">
+              <label for="emp-desc">Campaign Use Case &amp; Business Description</label>
+              <textarea id="emp-desc" rows="3" required minlength="10" maxlength="800"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit Employer Application</button>
+          </form>
+        </div>
+
+        <div id="employer-workspace" class="hidden">
+          <div class="banner" id="employer-verification-banner"></div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <span>Available Campaign Balance</span>
+              <strong id="emp-balance" class="tabular-nums">$0.00</strong>
+            </div>
+            <div class="kpi-card">
+              <span>Total Verified Funding</span>
+              <strong id="emp-total-funded" class="tabular-nums">$0.00</strong>
+            </div>
+            <div class="kpi-card">
+              <span>Total Campaign Spending</span>
+              <strong id="emp-total-spent" class="tabular-nums">$0.00</strong>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head">
+                <h3>Fund Campaign Balance</h3>
+              </div>
+              <form id="emp-funding-intent-form" class="form-stack">
+                <div class="field">
+                  <label for="fund-method">Payment Channel</label>
+                  <select id="fund-method">
+                    <option value="paypal">PayPal</option>
+                    <option value="usdt">USDT Treasury Transfer</option>
+                    <option value="vodafone_cash">Vodafone Cash Merchant</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="fund-amount">Deposit Amount (USD)</label>
+                  <input id="fund-amount" type="number" min="5" step="0.01" required placeholder="50.00" />
+                </div>
+                <div class="field">
+                  <label for="fund-ref">External Payment / Transaction Reference</label>
+                  <input id="fund-ref" type="text" required minlength="4" placeholder="PayPal Order ID / TX Hash / PSP Ref" />
+                </div>
+                <div class="btn-row">
+                  <button type="submit" class="btn btn-primary">Log Reference for Verification</button>
+                  <button type="button" class="btn btn-outline" id="btn-paypal-checkout">Start PayPal Checkout</button>
+                </div>
+                <p class="form-hint">
+                  Campaign funds are never self-credited. Balances increase only after PayPal Order capture succeeds or an admin verifies a real payment receipt.
+                </p>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <h3>Create Microtask Campaign</h3>
+              </div>
+              <form id="emp-create-task-form" class="form-stack">
+                <div class="field">
+                  <label for="task-title">Task Title</label>
+                  <input id="task-title" type="text" required minlength="4" maxlength="120" />
+                </div>
+                <div class="toolbar-grid">
+                  <div class="field">
+                    <label for="task-category">Category</label>
+                    <select id="task-category" required></select>
+                  </div>
+                  <div class="field">
+                    <label for="task-difficulty">Difficulty</label>
+                    <select id="task-difficulty">
+                      <option value="Easy">Easy</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Hard">Hard</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="toolbar-grid">
+                  <div class="field">
+                    <label for="task-reward">Reward per Task (USD)</label>
+                    <input id="task-reward" type="number" step="0.05" min="0.10" required placeholder="1.50" />
+                  </div>
+                  <div class="field">
+                    <label for="task-qty">Max Quantity</label>
+                    <input id="task-qty" type="number" min="1" max="10000" required placeholder="25" />
+                  </div>
+                  <div class="field">
+                    <label for="task-minutes">Est. Minutes</label>
+                    <input id="task-minutes" type="number" min="1" max="240" value="10" required />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="task-desc">Summary Description</label>
+                  <textarea id="task-desc" rows="2" required minlength="15"></textarea>
+                </div>
+                <div class="field">
+                  <label for="task-instructions">Step-by-Step Instructions</label>
+                  <textarea id="task-instructions" rows="3" required minlength="15"></textarea>
+                </div>
+                <div class="field">
+                  <label for="task-proof-req">Required Proof (Text / Screenshot)</label>
+                  <input id="task-proof-req" type="text" required minlength="8" placeholder="Username + screenshot of completed action" />
+                </div>
+                <button type="submit" class="btn btn-primary">Create Draft Campaign</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Your Task Campaigns</h3>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Reward</th>
+                    <th>Progress</th>
+                    <th>Budget</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="emp-tasks-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Worker Submissions to Review</h3>
+            </div>
+            <div id="emp-submissions-list" class="stack-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: ADMIN DASHBOARD -->
+      <section class="view hidden" id="view-admin">
+        <div class="section-head">
+          <div>
+            <h2>Platform Administration &amp; Compliance</h2>
+            <p>Manage users, verify employers, execute real provider payouts, monitor fraud signals, and audit ledger events.</p>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-refresh-admin">Refresh Data</button>
+        </div>
+
+        <div class="kpi-grid" id="admin-analytics-grid">
+          <div class="kpi-card"><span>Total Users</span><strong id="adm-users" class="tabular-nums">0</strong></div>
+          <div class="kpi-card"><span>Employers</span><strong id="adm-employers" class="tabular-nums">0</strong></div>
+          <div class="kpi-card"><span>Tasks</span><strong id="adm-tasks" class="tabular-nums">0</strong></div>
+          <div class="kpi-card"><span>Pending Proofs</span><strong id="adm-proofs" class="tabular-nums">0</strong></div>
+          <div class="kpi-card"><span>Pending Withdrawals</span><strong id="adm-withdrawals" class="tabular-nums">0</strong></div>
+        </div>
+
+        <div class="subtabs" id="admin-subtabs">
+          <button type="button" class="subtab active" data-admin-tab="withdrawals">Withdrawals</button>
+          <button type="button" class="subtab" data-admin-tab="employers">Employers &amp; Deposits</button>
+          <button type="button" class="subtab" data-admin-tab="submissions">Proof Review</button>
+          <button type="button" class="subtab" data-admin-tab="tasks">Tasks</button>
+          <button type="button" class="subtab" data-admin-tab="users">Users</button>
+          <button type="button" class="subtab" data-admin-tab="fraud">Fraud &amp; Ledger</button>
+          <button type="button" class="subtab" data-admin-tab="logs">Audit Logs</button>
+        </div>
+
+        <div id="admin-panel-withdrawals" class="admin-panel">
+          <div class="card">
+            <div class="card-head"><h3>Withdrawal Queue</h3></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Worker</th>
+                    <th>Method</th>
+                    <th>Destination</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adm-withdrawals-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="admin-panel-employers" class="admin-panel hidden">
+          <div class="card">
+            <div class="card-head"><h3>Employer Verification &amp; Verified Deposit Credit</h3></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Company</th>
+                    <th>Owner</th>
+                    <th>Status</th>
+                    <th>Campaign Balance</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adm-employers-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h3>Credit Verified Employer Deposit</h3></div>
+            <form id="adm-credit-deposit-form" class="toolbar-grid">
+              <div class="field">
+                <label for="adm-dep-emp-id">Employer ID</label>
+                <input id="adm-dep-emp-id" type="number" min="1" required />
+              </div>
+              <div class="field">
+                <label for="adm-dep-method">Provider Method</label>
+                <select id="adm-dep-method">
+                  <option value="paypal">PayPal</option>
+                  <option value="usdt">USDT</option>
+                  <option value="vodafone_cash">Vodafone Cash</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="adm-dep-amount">Verified Amount (USD)</label>
+                <input id="adm-dep-amount" type="number" min="5" step="0.01" required />
+              </div>
+              <div class="field">
+                <label for="adm-dep-ref">Settled Receipt Reference</label>
+                <input id="adm-dep-ref" type="text" required minlength="4" />
+              </div>
+              <div class="field field-end">
+                <button type="submit" class="btn btn-primary">Credit Verified Funds</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div id="admin-panel-submissions" class="admin-panel hidden">
+          <div class="card">
+            <div class="card-head"><h3>All Task Submissions</h3></div>
+            <div id="adm-submissions-list" class="stack-list"></div>
+          </div>
+        </div>
+
+        <div id="admin-panel-tasks" class="admin-panel hidden">
+          <div class="card">
+            <div class="card-head"><h3>Task Moderation</h3></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Company</th>
+                    <th>Reward</th>
+                    <th>Progress</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="adm-tasks-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="admin-panel-users" class="admin-panel hidden">
+          <div class="card">
+            <div class="card-head"><h3>User Accounts</h3></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name &amp; Email</th>
+                    <th>Role</th>
+                    <th>Verified</th>
+                    <th>Status</th>
+                    <th>Wallet</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adm-users-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="admin-panel-fraud" class="admin-panel hidden">
+          <div class="card">
+            <div class="card-head"><h3>Fraud Prevention Signals</h3></div>
+            <div id="adm-fraud-signals" class="stack-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Global Financial Transactions</h3></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>User</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Description</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody id="adm-transactions-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="admin-panel-logs" class="admin-panel hidden">
+          <div class="card">
+            <div class="card-head"><h3>Immutable Admin Audit Logs</h3></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Admin</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Details</th>
+                    <th>IP</th>
+                  </tr>
+                </thead>
+                <tbody id="adm-logs-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: ACCOUNT & SETTINGS -->
+      <section class="view hidden" id="view-account">
+        <div class="section-head">
+          <div>
+            <h2>Account, Verification &amp; Security</h2>
+            <p>Manage your profile, email verification, KYC request, and password.</p>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-head"><h3>Profile &amp; Payout Preference</h3></div>
+            <form id="account-profile-form" class="form-stack">
+              <div class="field">
+                <label for="acc-name">Full Name</label>
+                <input id="acc-name" type="text" required minlength="2" maxlength="100" />
+              </div>
+              <div class="field">
+                <label for="acc-country">Country</label>
+                <input id="acc-country" type="text" maxlength="80" placeholder="e.g. Egypt, United States" />
+              </div>
+              <div class="field">
+                <label for="acc-payout">Default Payout Method</label>
+                <select id="acc-payout">
+                  <option value="paypal">PayPal</option>
+                  <option value="usdt">USDT</option>
+                  <option value="vodafone_cash">Vodafone Cash</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="acc-bio">Worker Bio / Skills</label>
+                <textarea id="acc-bio" rows="3" maxlength="500"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Save Profile</button>
+            </form>
+          </div>
+
+          <div class="stack-list">
+            <div class="card">
+              <div class="card-head"><h3>Verification Status</h3></div>
+              <p class="subtle-text" id="acc-verification-summary"></p>
+              <form id="verify-email-token-form" class="form-stack">
+                <div class="field">
+                  <label for="verify-token-input">Email Verification Token</label>
+                  <input id="verify-token-input" type="text" placeholder="Paste verification token from email" />
+                </div>
+                <div class="btn-row">
+                  <button type="submit" class="btn btn-primary btn-sm">Verify Email Token</button>
+                  <button type="button" class="btn btn-outline btn-sm" id="btn-request-kyc">Request Account Verification</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h3>Change Password</h3></div>
+              <form id="change-password-form" class="form-stack">
+                <div class="field">
+                  <label for="pw-current">Current Password</label>
+                  <input id="pw-current" type="password" required />
+                </div>
+                <div class="field">
+                  <label for="pw-new">New Password (8+ chars)</label>
+                  <input id="pw-new" type="password" minlength="8" required />
+                </div>
+                <button type="submit" class="btn btn-outline">Update Password</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: NOTIFICATIONS -->
+      <section class="view hidden" id="view-notifications">
+        <div class="section-head">
+          <div>
+            <h2>Notifications</h2>
+            <p>Real-time account, task approval, and payout notifications.</p>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-mark-all-read">Mark All Read</button>
+        </div>
+        <div id="notifications-list" class="stack-list"></div>
+      </section>
+    </main>
+
+    <!-- MODAL: AUTHENTICATION -->
+    <div class="modal-backdrop hidden" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 id="auth-modal-title">Sign In to TaskNova</h3>
+          <button type="button" class="icon-btn" id="btn-close-auth-modal" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="subtabs" id="auth-tabs">
+          <button type="button" class="subtab active" data-auth-tab="login">Sign In</button>
+          <button type="button" class="subtab" data-auth-tab="register">Create Account</button>
+          <button type="button" class="subtab" data-auth-tab="reset">Reset Password</button>
+          <button type="button" class="subtab hidden" data-auth-tab="admin-setup" id="tab-admin-setup">Admin Setup</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="form-stack auth-pane">
+          <div class="field">
+            <label for="login-email">Email</label>
+            <input id="login-email" type="email" required autocomplete="email" />
+          </div>
+          <div class="field">
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" required autocomplete="current-password" />
+          </div>
+          <button type="submit" class="btn btn-primary">Sign In</button>
+          <button type="button" class="btn btn-outline hidden" id="btn-google-signin">Continue with Google</button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" class="form-stack auth-pane hidden">
+          <div class="field">
+            <label for="reg-name">Full Name</label>
+            <input id="reg-name" type="text" required minlength="2" />
+          </div>
+          <div class="field">
+            <label for="reg-email">Email</label>
+            <input id="reg-email" type="email" required autocomplete="email" />
+          </div>
+          <div class="field">
+            <label for="reg-password">Password (min 8 characters)</label>
+            <input id="reg-password" type="password" required minlength="8" autocomplete="new-password" />
+          </div>
+          <div class="field">
+            <label for="reg-role">Account Type</label>
+            <select id="reg-role">
+              <option value="worker">Worker — Complete tasks &amp; earn</option>
+              <option value="employer">Employer — Publish &amp; fund tasks</option>
+            </select>
+          </div>
+          <div class="field hidden" id="reg-company-wrap">
+            <label for="reg-company">Company Name</label>
+            <input id="reg-company" type="text" placeholder="Your company or brand name" />
+          </div>
+          <button type="submit" class="btn btn-primary">Create Account</button>
+        </form>
+
+        <!-- Password Reset Form -->
+        <div id="reset-pane" class="form-stack auth-pane hidden">
+          <form id="forgot-password-form" class="form-stack">
+            <div class="field">
+              <label for="forgot-email">Account Email</label>
+              <input id="forgot-email" type="email" required />
+            </div>
+            <button type="submit" class="btn btn-outline">Send Reset Email</button>
+          </form>
+          <hr class="divider" />
+          <form id="reset-password-form" class="form-stack">
+            <div class="field">
+              <label for="reset-token-input">Reset Token</label>
+              <input id="reset-token-input" type="text" required />
+            </div>
+            <div class="field">
+              <label for="reset-new-password">New Password (8+ chars)</label>
+              <input id="reset-new-password" type="password" required minlength="8" />
+            </div>
+            <button type="submit" class="btn btn-primary">Set New Password</button>
+          </form>
+        </div>
+
+        <!-- First-Run Admin Setup Form -->
+        <form id="admin-setup-form" class="form-stack auth-pane hidden">
+          <p class="form-hint">
+            Available only when no administrator account exists yet. Locks permanently once created.
+          </p>
+          <div class="field">
+            <label for="adm-init-name">Admin Name</label>
+            <input id="adm-init-name" type="text" required minlength="2" />
+          </div>
+          <div class="field">
+            <label for="adm-init-email">Admin Email</label>
+            <input id="adm-init-email" type="email" required />
+          </div>
+          <div class="field">
+            <label for="adm-init-password">Strong Password (10+ chars)</label>
+            <input id="adm-init-password" type="password" required minlength="10" />
+          </div>
+          <div class="field hidden" id="adm-init-key-wrap">
+            <label for="adm-init-key">Bootstrap Key</label>
+            <input id="adm-init-key" type="password" />
+          </div>
+          <button type="submit" class="btn btn-primary">Create Administrator Account</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: TASK DETAIL & ACCEPT -->
+    <div class="modal-backdrop hidden" id="task-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+      <div class="modal-card modal-wide">
+        <div class="modal-head">
+          <h3 id="task-modal-title">Task Details</h3>
+          <button type="button" class="icon-btn" id="btn-close-task-modal" aria-label="Close task modal">&times;</button>
+        </div>
+        <div id="task-modal-body" class="form-stack"></div>
+      </div>
+    </div>
+
+    <!-- MODAL: SUBMIT PROOF -->
+    <div class="modal-backdrop hidden" id="proof-modal" role="dialog" aria-modal="true" aria-labelledby="proof-modal-title">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 id="proof-modal-title">Submit Task Proof</h3>
+          <button type="button" class="icon-btn" id="btn-close-proof-modal" aria-label="Close proof modal">&times;</button>
+        </div>
+        <form id="submit-proof-form" class="form-stack">
+          <input type="hidden" id="proof-submission-id" />
+          <p class="subtle-text" id="proof-task-req"></p>
+          <div class="field">
+            <label for="proof-text">Text Proof / Details</label>
+            <textarea id="proof-text" rows="4" required minlength="10" placeholder="Include required usernames, URLs, timestamps, or answers..."></textarea>
+          </div>
+          <div class="field">
+            <label for="proof-file">Screenshot Attachment (PNG, JPG, WEBP — max 5 MB)</label>
+            <input id="proof-file" type="file" accept="image/png,image/jpeg,image/webp" />
+          </div>
+          <button type="submit" class="btn btn-primary">Submit Proof for Review</button>
+        </form>
+      </div>
+    </div>
+
+    <script type="module" src="./src/firebase-bridge.ts"></script>
+    <script type="module" src="./script.js"></script>
+  </body>
+</html>

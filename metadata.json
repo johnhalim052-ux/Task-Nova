@@ -1,0 +1,6 @@
+{
+  "name": "My Maps",
+  "description": "My Maps — A searchable places and services directory with an interactive Leaflet and OpenStreetMap explorer.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
